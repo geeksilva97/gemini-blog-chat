@@ -48,10 +48,13 @@ async function _main() {
 }
 
 async function main() {
+  const promptField = document.querySelector('input[name=prompt]');
+  const outputElem = document.querySelector('#output') as HTMLDivElement;
+
   const app = initializeApp(firebaseConfig);
 
   const functions = {
-    findPostsByCategory({ category }: { category: any[] } ) {
+    findPostsByCategory({ category }: { category: any[] }) {
       console.log('gotta search by category', { category });
 
 
@@ -64,7 +67,7 @@ async function main() {
       return {
         posts: [
           {
-            title: 'some nodejs post',
+            title: 'some python post',
             url: 'https://codesilva.github.io'
           },
           {
@@ -72,7 +75,7 @@ async function main() {
             url: 'https://codesilva.github.io'
           },
           {
-            title: 'some nodejs post',
+            title: 'some rust post',
             url: 'https://codesilva.github.io'
           }
         ]
@@ -93,7 +96,7 @@ async function main() {
               description: "Find posts by category",
               parameters: {
                 type: FunctionDeclarationSchemaType.OBJECT,
-                description: "Get the exchange rate for currencies between countries",
+                description: "Categories provided to find blog posts",
                 properties: {
                   category: {
                     type: FunctionDeclarationSchemaType.ARRAY,
@@ -109,33 +112,83 @@ async function main() {
     }
   );
 
-  const chat = model.startChat();
-  // const prompt = 'I wanna find posts relate to NodeJS and Debugging';
-  // const prompt = 'Quero encontrar post relacionados a NodeJS e Depuração';
-  const prompt = window.prompt('pesquise');
 
-  const result = await chat.sendMessage(prompt);
+  promptField?.addEventListener('keydown', async function(e) {
+    if (e.key === 'Enter') {
+      const chat = model.startChat({
+        history: [
+          {
+            role: 'user',
+            parts: [
+              { text: 'Can you please answer in Brazilian Portuguese?' }
+            ]
+          },
+          {
+            role: 'model',
+            parts: [
+              { text: 'Sim, vou responder em Portugues' }
+            ]
+          },
 
-  const call = result.response.functionCalls()?.[0];
+          {
+            role: 'user',
+            parts: [
+              { text: 'Os links mostrados, pode por em tag <a>?' }
+            ]
+          },
 
-  if (call) {
-    // Call the executable function named in the function call
-    // with the arguments specified in the function call and
-    // let it call the hypothetical API.
-    const apiResponse = await functions[call.name](call.args);
+          {
+            role: 'model',
+            parts: [
+              { text: 'Claro! Os links que vierem nas respostas serão devidamente colocados em tag <a>' }
+            ]
+          }
+        ]
+      });
+      // const prompt = 'I wanna find posts relate to NodeJS and Debugging';
+      // const prompt = 'Quero encontrar post relacionados a NodeJS e Depuração';
+      const prompt = e.target.value;
 
-    // Send the API response back to the model so it can generate
-    // a text response that can be displayed to the user.
-    const result = await chat.sendMessage([{
-      functionResponse: {
-        name: 'findPostsByCategory',
-        response: apiResponse
+      if (!prompt) return;
+
+      if (outputElem) {
+        outputElem.textContent = 'Buscando...'
       }
-    }]);
 
-    // Log the text response.
-    console.log(result.response.text());
-  }
+      const result = await chat.sendMessage(prompt);
+
+      const call = result.response.functionCalls()?.[0];
+
+      console.log({
+        calls: result.response.functionCalls()
+      });
+
+      if (call) {
+        // Call the executable function named in the function call
+        // with the arguments specified in the function call and
+        // let it call the hypothetical API.
+        const apiResponse = await functions[call.name](call.args);
+
+        console.log({ apiResponse })
+
+        // Send the API response back to the model so it can generate
+        // a text response that can be displayed to the user.
+        const result = await chat.sendMessage([{
+          functionResponse: {
+            name: 'findPostsByCategory',
+            response: apiResponse
+          }
+        }]);
+
+        // Log the text response.
+        console.log(result.response.text());
+
+        if (outputElem) {
+          outputElem.textContent = result.response.text();
+        }
+      }
+    }
+  });
 
 }
 
